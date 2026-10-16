@@ -1,0 +1,657 @@
+<!doctype html>
+<html lang="en-GB">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>How Pretraining Works</title>
+<meta name="description" content="An interactive explainer of LLM pretraining for Economics of AI (7SSPN409), Week 1.">
+<style>
+:root{
+  --navy:#0A2D50; --navy-2:#1d4673; --bg:#F0F4F7; --card:#ffffff; --line:#d5dee5;
+  --ink:#0A2D50; --muted:#4f6478; --red:#E2231A; --teal:#00807f; --soft:#e4ecf2;
+}
+*{box-sizing:border-box}
+html{scroll-behavior:smooth}
+body{margin:0;background:var(--bg);color:var(--ink);
+  font-family:Calibri,Carlito,"Segoe UI",Arial,sans-serif;font-size:19px;line-height:1.5}
+h1,h2,.display{font-family:Impact,Haettenschweiler,"Arial Narrow Bold",sans-serif;font-weight:400;letter-spacing:.3px}
+h3{margin:0 0 .4em;font-size:1.05em}
+p{margin:.5em 0}
+a{color:var(--navy-2)}
+header.band{background:var(--navy);color:#fff;padding:34px 16px 30px}
+.wrap{max-width:1000px;margin:0 auto;padding:0 16px}
+header h1{margin:0;font-size:46px;line-height:1.1}
+header .sub{margin:.4em 0 0;font-size:20px;opacity:.88}
+nav.toc{background:#fff;border-bottom:1px solid var(--line);position:sticky;top:0;z-index:5}
+nav.toc .wrap{display:flex;gap:6px;overflow-x:auto;padding-top:8px;padding-bottom:8px}
+nav.toc a{white-space:nowrap;text-decoration:none;font-size:15px;padding:4px 10px;border-radius:999px;color:var(--navy);background:var(--soft)}
+nav.toc a:hover{background:var(--navy);color:#fff}
+section{padding:38px 0 8px}
+section h2{font-size:32px;margin:0 0 .3em;display:flex;align-items:baseline;gap:12px}
+section h2 .num{display:inline-grid;place-items:center;min-width:40px;height:40px;border-radius:50%;
+  background:var(--navy);color:#fff;font-size:22px}
+.lead{font-size:21px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:20px 22px;margin:16px 0}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+.grid3{display:grid;grid-template-columns:repeat(3,1fr);gap:14px}
+@media (max-width:760px){.grid2,.grid3{grid-template-columns:1fr} header h1{font-size:34px}}
+.note{font-size:15px;color:var(--muted)}
+.econ{border-left:0;background:#fff7f6;border-color:#f3c9c6}
+.econ .tag{display:inline-block;font-size:13px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:var(--red);margin-bottom:4px}
+button{font:inherit;font-size:16px;cursor:pointer;border-radius:8px;border:1px solid var(--navy);
+  background:#fff;color:var(--navy);padding:7px 14px}
+button:hover{background:var(--soft)}
+button.primary{background:var(--navy);color:#fff}
+button.primary:hover{background:var(--navy-2)}
+button.on{background:var(--navy);color:#fff}
+button:disabled{opacity:.45;cursor:default}
+.row{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+
+/* guessing game */
+.prompt{font-size:26px;line-height:1.35;margin:6px 0 14px}
+.blank{display:inline-block;min-width:110px;border-bottom:3px solid var(--red);color:var(--red);text-align:center}
+.bars{margin-top:12px}
+.bar{display:grid;grid-template-columns:150px 1fr 64px;gap:10px;align-items:center;margin:5px 0;font-size:17px}
+.bar .lab{text-align:right;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.bar .track{position:relative;height:22px;background:var(--soft);border-radius:5px;overflow:hidden}
+.bar .fill{position:absolute;left:0;top:0;bottom:0;background:var(--navy);border-radius:5px;transition:width .35s ease}
+.bar .fill.other{background:#9fb2c3}
+.bar .tick{position:absolute;top:-2px;bottom:-2px;width:3px;background:var(--red);transition:left .35s ease}
+.bar .val{font-variant-numeric:tabular-nums}
+.feedback{min-height:1.5em;font-weight:700}
+
+/* chips */
+.chips{display:flex;flex-wrap:wrap;gap:6px;margin:10px 0}
+.chip{padding:5px 11px;border-radius:7px;background:var(--soft);border:1px solid var(--line);font-size:19px}
+.chip.ctx{background:var(--navy);color:#fff;border-color:var(--navy)}
+.chip.tgt{background:#fff;color:var(--red);border:2px dashed var(--red);font-weight:700}
+.chip.dim{opacity:.35}
+.tok .chip{font-family:Consolas,Menlo,monospace;font-size:17px;white-space:pre}
+.tok .chip:nth-child(odd){background:#dbe9f3}
+.tok .chip:nth-child(even){background:#f6e3c8}
+.counter{font-size:17px;color:var(--muted)}
+
+/* surprise table */
+.surp{display:grid;grid-template-columns:repeat(5,1fr);gap:8px;text-align:center;margin:10px 0}
+.surp div{background:var(--soft);border-radius:8px;padding:8px 4px;font-size:16px}
+.surp b{display:block;font-size:22px}
+.formula{font-family:Cambria,Georgia,serif;font-size:21px;text-align:center;margin:12px 0;padding:10px;background:var(--soft);border-radius:8px}
+
+/* toy model */
+.toy-top{display:grid;grid-template-columns:1.15fr 1fr;gap:18px}
+@media (max-width:760px){.toy-top{grid-template-columns:1fr}}
+canvas{width:100%;height:260px;display:block;background:#fff;border:1px solid var(--line);border-radius:8px}
+.stat{font-size:16px;color:var(--muted)}
+.stat b{color:var(--ink);font-variant-numeric:tabular-nums}
+.legend{display:flex;flex-wrap:wrap;gap:14px;font-size:14px;color:var(--muted);margin-top:6px}
+.legend i{display:inline-block;width:18px;height:3px;vertical-align:middle;margin-right:5px}
+.gen{min-height:3.2em;font-size:22px;padding:12px 14px;background:var(--soft);border-radius:8px;margin-top:10px}
+label.sl{font-size:16px;display:flex;align-items:center;gap:8px}
+input[type=range]{accent-color:var(--navy)}
+select{font:inherit;font-size:16px;padding:5px 8px;border-radius:8px;border:1px solid var(--navy);color:var(--navy);background:#fff}
+
+/* scale */
+.big{font-family:Impact,Haettenschweiler,"Arial Narrow Bold",sans-serif;font-size:34px;line-height:1.1}
+.kpi{background:var(--soft);border-radius:10px;padding:12px 14px}
+.kpi .k{font-size:14px;color:var(--muted);text-transform:uppercase;letter-spacing:1px}
+table{border-collapse:collapse;width:100%;font-size:16px}
+th,td{padding:7px 8px;border-bottom:1px solid var(--line);text-align:left}
+th{color:var(--muted);font-weight:700}
+td.n{font-variant-numeric:tabular-nums}
+
+/* base model */
+.doc{font-family:Consolas,Menlo,monospace;font-size:16px;background:#fff;border:1px solid var(--line);border-radius:8px;padding:12px 14px;white-space:pre-wrap}
+.doc .gen-txt{color:var(--teal)}
+details{background:#fff;border:1px solid var(--line);border-radius:10px;padding:12px 16px;margin:10px 0}
+details summary{cursor:pointer;font-weight:700}
+ol.refs{font-size:15px;color:var(--muted)}
+footer{padding:30px 0 50px;color:var(--muted);font-size:15px}
+.recap li{margin:.35em 0}
+</style>
+</head>
+<body>
+
+<header class="band">
+  <div class="wrap">
+    <h1>How a large language model learns: pretraining</h1>
+    <p class="sub">Economics of AI · Week 1 · An interactive explainer. No maths or programming background needed.</p>
+  </div>
+</header>
+
+<nav class="toc" aria-label="Sections">
+  <div class="wrap">
+    <a href="#task">1 · The task</a>
+    <a href="#answers">2 · Free answer key</a>
+    <a href="#surprise">3 · Learning</a>
+    <a href="#toy">4 · Watch it learn</a>
+    <a href="#why">5 · Why it works</a>
+    <a href="#scale">6 · Scale</a>
+    <a href="#base">7 · The result</a>
+    <a href="#recap">Recap</a>
+  </div>
+</nav>
+
+<main class="wrap">
+
+<!-- 1 -->
+<section id="task">
+  <h2><span class="num">1</span>One simple task: guess the next word</h2>
+  <p class="lead">Pretraining teaches a model one thing: <b>read some text and guess what comes next.</b> That is all. Everything ChatGPT, Claude or Gemini can do starts from this one exercise, repeated trillions of times.</p>
+  <div class="card">
+    <div class="row" style="justify-content:space-between">
+      <h3 style="margin:0">Your turn: what comes next?</h3>
+      <span class="counter" id="gNum"></span>
+    </div>
+    <div class="prompt" id="gPrompt"></div>
+    <div class="row" id="gOptions"></div>
+    <div class="bars" id="gBars" hidden></div>
+    <p class="feedback" id="gFeedback"></p>
+    <p class="note" id="gNote"></p>
+    <div class="row"><button class="primary" id="gNext">Next sentence →</button></div>
+    <p class="note">The probabilities are illustrative: they show the kind of answer a well-trained model gives, not the output of a specific model.</p>
+  </div>
+  <p>Notice two things. First, the model never gives a single answer: it gives a <b>probability for every possible next word</b>. Second, some sentences have an obvious continuation and others do not. No model can know your favourite fruit.</p>
+</section>
+
+<!-- 2 -->
+<section id="answers">
+  <h2><span class="num">2</span>The text is its own answer key</h2>
+  <p class="lead">To learn, a model needs exercises with correct answers. In most of machine learning, humans must write those answers (for example, by labelling photos). Pretraining needs no human labels: <b>every piece of text already contains the answers</b>, because the next word is simply the next word.</p>
+  <div class="card">
+    <h3>One sentence becomes many exercises</h3>
+    <div class="chips" id="swChips"></div>
+    <p class="counter" id="swCount"></p>
+    <div class="row">
+      <button class="primary" id="swNext">Next exercise →</button>
+      <button id="swPlay">Play all</button>
+      <button id="swReset">Reset</button>
+    </div>
+    <p class="note">Navy = what the model can see. Red = the word it must guess. Then the window moves one step to the right.</p>
+  </div>
+  <div class="grid2">
+    <div class="card">
+      <h3>Models read tokens, not words</h3>
+      <p>Text is cut into small pieces called <b>tokens</b>: common words, parts of words, digits and punctuation.</p>
+      <div class="chips tok" aria-label="Example of text split into tokens">
+        <span class="chip">Un</span><span class="chip">employment</span><span class="chip"> rose</span><span class="chip"> to</span><span class="chip"> 4</span><span class="chip">.</span><span class="chip">7</span><span class="chip">%</span><span class="chip"> in</span><span class="chip"> the</span><span class="chip"> UK</span><span class="chip">.</span>
+      </div>
+      <p class="note">Illustrative split. Each model family uses its own tokenizer. In English, one token is roughly three-quarters of a word. On this page we say “word” to keep things simple.</p>
+    </div>
+    <div class="card econ">
+      <span class="tag">Economics lens</span>
+      <h3>Labels are free, so data can be huge</h3>
+      <p>Human labelling has a high marginal cost per example. Self-supervised learning has almost zero marginal cost per exercise. This is why pretraining can use <b>trillions</b> of tokens from web pages, books, articles and code. The binding constraints become the amount of good text and the cost of computing power.</p>
+    </div>
+  </div>
+</section>
+
+<!-- 3 -->
+<section id="surprise">
+  <h2><span class="num">3</span>Learning means becoming less surprised</h2>
+  <p class="lead">After each guess, we check how much probability the model gave to the word that really came next. If it gave the true word a low probability, the model was <b>surprised</b>. Training adjusts the model so that it is less surprised next time.</p>
+  <div class="card">
+    <h3>Surprise in bits: each halving of the probability adds one bit</h3>
+    <div class="surp">
+      <div>p = 1<b>0 bits</b>no surprise</div>
+      <div>p = 1/2<b>1 bit</b>coin flip</div>
+      <div>p = 1/8<b>3 bits</b></div>
+      <div>p = 1/64<b>6 bits</b></div>
+      <div>p = 1/1024<b>10 bits</b>very surprised</div>
+    </div>
+    <p>The training <b>loss</b> is the average surprise over all the text:</p>
+    <div class="formula">Loss = average of &nbsp;−log<sub>2</sub> P( true next word | the words before it )</div>
+    <p class="note">This measure is called cross-entropy. People also call it log loss.</p>
+  </div>
+  <div class="grid2">
+    <div class="card econ">
+      <span class="tag">You already know this</span>
+      <h3>Pretraining is maximum likelihood estimation</h3>
+      <p>In econometrics you choose parameters that make the observed data most likely. Pretraining does the same: it chooses the model’s parameters to make the observed text most likely. Minimising average surprise is exactly the same as maximising the log-likelihood. The differences are scale (billions of parameters) and a very flexible functional form.</p>
+    </div>
+    <div class="card">
+      <h3>How the parameters change</h3>
+      <p>A real model is a neural network called a <b>transformer</b>. Think of it as a very flexible function with billions of adjustable dials (parameters).</p>
+      <p>After each exercise, the training algorithm (gradient descent) turns every dial a tiny amount in the direction that would have given the true word a higher probability. Repeat this trillions of times.</p>
+    </div>
+  </div>
+</section>
+
+<!-- 4 -->
+<section id="toy">
+  <h2><span class="num">4</span>Watch a tiny model learn</h2>
+  <p class="lead">Below is a real (but tiny) language model. It trains in your browser on 24 short sentences about economics. It starts knowing nothing: every word is equally likely. Press <b>Train</b> and watch its guesses improve.</p>
+  <div class="card">
+    <div class="row" style="justify-content:space-between">
+      <div class="row">
+        <button class="primary" id="tTrain">▶ Train</button>
+        <button id="tReset">Reset</button>
+        <label class="sl">Speed <input type="range" id="tSpeed" min="0" max="5" value="2"></label>
+      </div>
+      <div class="stat">Exercises done: <b id="tSeen">0</b> · Average surprise: <b id="tLoss">–</b> bits</div>
+    </div>
+    <div class="toy-top" style="margin-top:14px">
+      <div>
+        <h3>Average surprise (loss) during training</h3>
+        <canvas id="tChart" aria-label="Line chart of the training loss falling over time" role="img"></canvas>
+        <div class="legend">
+          <span><i style="background:var(--navy)"></i>Model’s average surprise</span>
+          <span><i style="background:#9fb2c3"></i>Random guessing</span>
+          <span><i style="background:var(--red)"></i>Best possible for this toy</span>
+        </div>
+      </div>
+      <div>
+        <h3>What comes after <select id="tCtx" aria-label="Context word"></select> ?</h3>
+        <div class="bars" id="tBars"></div>
+        <p class="note">Navy bar: the model’s probability. Red mark: how often that word really follows in the training sentences. Training pushes the bars towards the red marks.</p>
+      </div>
+    </div>
+  </div>
+  <div class="card">
+    <h3>Let the model write</h3>
+    <p>Writing is just repeated guessing: pick a next word from the model’s probabilities, add it to the text, and guess again.</p>
+    <div class="row">
+      <button class="primary" id="tGen">Write a sentence starting with the word above</button>
+      <label class="sl">Creativity (temperature) <input type="range" id="tTemp" min="1" max="15" value="10"><span id="tTempV">1.0</span></label>
+    </div>
+    <div class="gen" id="tOut" aria-live="polite"></div>
+    <p class="note">Try this before and after training. Low temperature: the model almost always picks its top guess. High temperature: it takes more risks.</p>
+  </div>
+  <details>
+    <summary>How is this toy different from a real LLM?</summary>
+    <p>The toy sees <b>only one previous word</b>. It cannot know whether “prices rise” is about demand or supply, because it has already forgotten the start of the sentence. That is why its sentences wander. A real LLM looks back over thousands or even hundreds of thousands of tokens.</p>
+    <p>The toy has about 5,000 dials and learns from 181 exercises, which it sees over and over. A real model has billions of dials and reads trillions of tokens. The learning rule is the same idea: nudge the dials to reduce surprise.</p>
+    <p>The toy can never reach zero surprise. The data itself is uncertain: in the training sentences, the word “rates” is followed by “to”, “reduce”, “are” or the end of the sentence. The red line shows the lowest surprise any one-word-memory model can reach on these sentences.</p>
+  </details>
+</section>
+
+<!-- 5 -->
+<section id="why">
+  <h2><span class="num">5</span>Why guessing words teaches so much</h2>
+  <p class="lead">To guess the next word well across trillions of different documents, a model must pick up the patterns that produced the text. Lower surprise on the next word requires:</p>
+  <div class="grid3">
+    <div class="card"><h3>Grammar</h3><p>“She ___ to work by bus.”</p><p class="note">→ goes, went, travels</p></div>
+    <div class="card"><h3>Facts</h3><p>“The capital of Japan is ___”</p><p class="note">→ Tokyo</p></div>
+    <div class="card"><h3>Economic reasoning</h3><p>“A tax on sugar will make fizzy drinks ___”</p><p class="note">→ more expensive</p></div>
+    <div class="card"><h3>Arithmetic</h3><p>“17 × 3 = ___”</p><p class="note">→ 51</p></div>
+    <div class="card"><h3>Keeping track</h3><p>“Anna lent Ben her umbrella. The next day Ben gave it back to ___”</p><p class="note">→ Anna</p></div>
+    <div class="card"><h3>Style and intent</h3><p>“Dear Sir or Madam, I am writing to ___”</p><p class="note">→ apply, complain, enquire</p></div>
+  </div>
+  <div class="card econ">
+    <span class="tag">A caution</span>
+    <p>The model learns the patterns in its text, not the truth. If the training text contains errors, outdated facts or biases, the model learns those too. When a fact is rare in the data, the model can produce a fluent but wrong answer.</p>
+  </div>
+</section>
+
+<!-- 6 -->
+<section id="scale">
+  <h2><span class="num">6</span>Scale: the inputs to the production function</h2>
+  <p class="lead">Pretraining has three main inputs: the <b>number of parameters</b> (N), the <b>amount of training text</b> in tokens (D) and the <b>computing power</b> (C) needed to process it. A widely used rule of thumb links them:</p>
+  <div class="formula">Training compute ≈ 6 × N × D &nbsp;operations</div>
+  <div class="card">
+    <div class="row" style="margin-bottom:10px">
+      <span class="note">Presets:</span>
+      <button data-preset="gpt3">GPT-3 (2020)</button>
+      <button data-preset="chin">Chinchilla (2022)</button>
+      <button data-preset="llama">Llama 3.1 405B (2024)</button>
+    </div>
+    <div class="grid2">
+      <label class="sl" style="flex-wrap:wrap">Parameters (N): <b id="sNv"></b><input type="range" id="sN" min="8" max="12.5" step="0.05" style="width:100%"></label>
+      <label class="sl" style="flex-wrap:wrap">Training tokens (D): <b id="sDv"></b><input type="range" id="sD" min="9" max="14" step="0.05" style="width:100%"></label>
+    </div>
+    <div class="grid3" style="margin-top:12px">
+      <div class="kpi"><div class="k">Training compute</div><div class="big" id="sC"></div><div class="note">operations (FLOP)</div></div>
+      <div class="kpi"><div class="k">On one fast laptop</div><div class="big" id="sLap"></div><div class="note">at 10 trillion operations per second, non-stop</div></div>
+      <div class="kpi"><div class="k">Reading the data yourself</div><div class="big" id="sRead"></div><div class="note">at 250 words per minute, 8 hours a day</div></div>
+    </div>
+  </div>
+  <table>
+    <thead><tr><th>Model</th><th>Parameters</th><th>Training tokens</th><th>Training compute</th></tr></thead>
+    <tbody>
+      <tr><td>GPT-3 (OpenAI, 2020)</td><td class="n">175 billion</td><td class="n">300 billion</td><td class="n">3.1 × 10<sup>23</sup> FLOP</td></tr>
+      <tr><td>Chinchilla (DeepMind, 2022)</td><td class="n">70 billion</td><td class="n">1.4 trillion</td><td class="n">≈ 5.9 × 10<sup>23</sup> FLOP (6ND)</td></tr>
+      <tr><td>Llama 3.1 405B (Meta, 2024)</td><td class="n">405 billion</td><td class="n">15.6 trillion</td><td class="n">3.8 × 10<sup>25</sup> FLOP</td></tr>
+    </tbody>
+  </table>
+  <p class="note">Most frontier developers no longer publish these numbers. Epoch AI estimates that the largest training runs now exceed 10<sup>26</sup> FLOP.</p>
+  <div class="grid2">
+    <div class="card">
+      <h3>Scaling laws</h3>
+      <p>Researchers found that the loss falls smoothly and predictably as N, D and C grow. The relation follows a power law. This predictability gives firms the confidence to invest very large sums in bigger training runs.</p>
+      <p>The Chinchilla study found that, for a fixed compute budget, parameters and data should grow together. Its rule of thumb is about 20 training tokens per parameter.</p>
+    </div>
+    <div class="card econ">
+      <span class="tag">Economics lens</span>
+      <h3>A huge fixed cost</h3>
+      <p>Pretraining is a large, one-off fixed cost. After that, the marginal cost of answering one more question is small. High fixed costs and low marginal costs have consequences for market structure, pricing and competition. We return to this in later weeks, including the economics of AI infrastructure.</p>
+    </div>
+  </div>
+</section>
+
+<!-- 7 -->
+<section id="base">
+  <h2><span class="num">7</span>The result: a base model, not yet an assistant</h2>
+  <p class="lead">Pretraining produces a <b>base model</b>: an excellent document-continuer. It continues text in the way the internet would. It does not yet follow instructions or try to be helpful.</p>
+  <div class="grid2">
+    <div class="card">
+      <h3>Input</h3>
+      <div class="doc">What is inflation?</div>
+      <h3 style="margin-top:12px">A base model might continue:</h3>
+      <div class="doc">What is inflation?<span class="gen-txt">
+What is deflation?
+What is stagflation?
+Quiz 4: Answer all questions in under 300 words.</span></div>
+      <p class="note">Illustrative. The text looks like a list of exam questions, so the model continues the list.</p>
+    </div>
+    <div class="card">
+      <h3>What comes next: post-training</h3>
+      <p>A second stage, <b>post-training</b>, turns the base model into an assistant. It uses example conversations written by people and reinforcement learning from feedback. This stage teaches the model to answer questions, follow instructions and refuse some requests.</p>
+      <p>Post-training is the next part of today’s lecture.</p>
+    </div>
+  </div>
+</section>
+
+<!-- recap -->
+<section id="recap">
+  <h2>Recap</h2>
+  <div class="card">
+    <ol class="recap">
+      <li><b>One task.</b> Pretraining teaches a model to give probabilities for the next token.</li>
+      <li><b>Free answers.</b> The text itself contains the correct answers, so no human labels are needed and the data can be enormous.</li>
+      <li><b>Learning is estimation.</b> Training turns billions of dials to reduce average surprise. This is maximum likelihood estimation.</li>
+      <li><b>Prediction needs knowledge.</b> To predict well, the model must absorb grammar, facts and patterns of reasoning, and also the errors and biases in its text.</li>
+      <li><b>Scale matters.</b> Loss falls predictably as parameters, data and compute grow.</li>
+      <li><b>Base model.</b> The result continues documents. Post-training makes it an assistant.</li>
+    </ol>
+  </div>
+  <h3>Check your understanding</h3>
+  <details><summary>Why can the loss never reach zero, even for a perfect model?</summary>
+    <p>Text is uncertain. After “My favourite fruit is”, many words are reasonable. Even the best possible model must spread probability over them, so it is sometimes surprised. In the toy model, the red line shows this floor.</p></details>
+  <details><summary>Why do people call pretraining “self-supervised”?</summary>
+    <p>The correct answers (the next tokens) come from the data itself. Nobody needs to label anything, so the supply of training exercises is limited only by the amount of usable text.</p></details>
+  <details><summary>The toy model sees only one previous word. What goes wrong, and how do real models fix it?</summary>
+    <p>It cannot use earlier context, so it cannot tell, for example, whether a price change comes from demand or supply. Its sentences drift. Real LLMs use the transformer architecture to look back over very long contexts.</p></details>
+  <details><summary>A firm doubles its compute budget. According to the Chinchilla result, how should it spend it?</summary>
+    <p>It should increase both the model size and the amount of training data, roughly in proportion, rather than only making the model bigger.</p></details>
+
+  <h3 style="margin-top:22px">Sources</h3>
+  <ol class="refs">
+    <li>Brown, T. et al. (2020). <a href="https://arxiv.org/abs/2005.14165">Language Models are Few-Shot Learners</a>. GPT-3 size, data and compute.</li>
+    <li>Kaplan, J. et al. (2020). <a href="https://arxiv.org/abs/2001.08361">Scaling Laws for Neural Language Models</a>. Power-law scaling; compute ≈ 6ND.</li>
+    <li>Hoffmann, J. et al. (2022). <a href="https://arxiv.org/abs/2203.15556">Training Compute-Optimal Large Language Models</a>. Chinchilla; about 20 tokens per parameter.</li>
+    <li>Llama Team, Meta (2024). <a href="https://arxiv.org/abs/2407.21783">The Llama 3 Herd of Models</a>. 405B parameters, 15.6T tokens, 3.8 × 10<sup>25</sup> FLOP.</li>
+    <li>Epoch AI. <a href="https://epoch.ai/data/ai-models">Data on AI Models</a>. Estimates of training compute.</li>
+  </ol>
+</section>
+</main>
+
+<footer><div class="wrap">7SSPN409 Economics of AI · King’s College London · Week 1: How AI works</div></footer>
+
+<script>
+(function(){
+"use strict";
+const $ = id => document.getElementById(id);
+const pct = p => (p >= 0.995 ? Math.round(p*100) : p >= 0.1 ? Math.round(p*100) : (p*100).toFixed(1)) + "%";
+
+function renderBars(el, rows){
+  // rows: [{label, p, tick (optional), other (optional)}]
+  if (el.children.length !== rows.length){
+    el.innerHTML = rows.map(() =>
+      '<div class="bar"><span class="lab"></span><span class="track"><span class="fill"></span><span class="tick" hidden></span></span><span class="val"></span></div>').join("");
+  }
+  rows.forEach((r, i) => {
+    const b = el.children[i];
+    b.querySelector(".lab").textContent = r.label;
+    const f = b.querySelector(".fill");
+    f.style.width = (Math.max(0, Math.min(1, r.p)) * 100) + "%";
+    f.classList.toggle("other", !!r.other);
+    const t = b.querySelector(".tick");
+    if (r.tick != null){ t.hidden = false; t.style.left = "calc(" + (r.tick*100) + "% - 1px)"; } else t.hidden = true;
+    b.querySelector(".val").textContent = pct(r.p);
+  });
+}
+
+/* ---------- 1. guessing game ---------- */
+const games = [
+  {text:"The Bank of England raised interest", opts:["rates","payments","again","groups"],
+   probs:{rates:.90, payments:.02, again:.02, groups:.003}, actual:"rates",
+   note:"Easy: almost every document continues with “rates”. The model is barely surprised."},
+  {text:"If demand rises and supply stays the same, the price will", opts:["rise","fall","increase","stay"],
+   probs:{rise:.71, increase:.13, fall:.02, stay:.01}, actual:"rise",
+   note:"To guess well here, the model must have picked up some basic economics from its training text."},
+  {text:"Adam Smith wrote The Wealth of", opts:["Nations","Countries","Britain","Kings"],
+   probs:{Nations:.98, Countries:.003, Britain:.001, Kings:.0005}, actual:"Nations",
+   note:"A fact. The model absorbed it because it appears in many documents."},
+  {text:"My favourite fruit is", opts:["apples","mango","bananas","strawberries"],
+   probs:{apples:.12, mango:.10, bananas:.08, strawberries:.08}, actual:"mango",
+   note:"Genuinely uncertain. Even a perfect model must spread its bets, so some surprise is unavoidable."}
+];
+let gi = 0;
+function showGame(){
+  const g = games[gi];
+  $("gNum").textContent = "Sentence " + (gi+1) + " of " + games.length;
+  $("gPrompt").innerHTML = "";
+  $("gPrompt").append(document.createTextNode(g.text + " "));
+  const blank = document.createElement("span"); blank.className = "blank"; blank.textContent = "?"; $("gPrompt").append(blank);
+  $("gOptions").innerHTML = "";
+  g.opts.forEach(o => {
+    const b = document.createElement("button"); b.textContent = o;
+    b.onclick = () => reveal(o, blank);
+    $("gOptions").append(b);
+  });
+  $("gBars").hidden = true; $("gFeedback").textContent = ""; $("gNote").textContent = "";
+}
+function reveal(choice, blank){
+  const g = games[gi];
+  [...$("gOptions").children].forEach(b => { b.disabled = true; if (b.textContent === choice) b.classList.add("on"); });
+  blank.textContent = g.actual;
+  const rows = Object.entries(g.probs).sort((a,b) => b[1]-a[1]).map(([w,p]) => ({label:w, p}));
+  const rest = 1 - rows.reduce((s,r) => s + r.p, 0);
+  rows.push({label:"all other words", p:rest, other:true});
+  $("gBars").hidden = false; renderBars($("gBars"), rows.map(r => ({...r, p:0})));
+  requestAnimationFrame(() => requestAnimationFrame(() => renderBars($("gBars"), rows)));
+  const pa = g.probs[g.actual], bits = -Math.log2(pa);
+  $("gFeedback").textContent = (choice === g.actual ? "Matches the text. " : "") +
+    "The text continued with “" + g.actual + "”. The model gave it " + pct(pa) + ", so its surprise was " + bits.toFixed(1) + " bits.";
+  $("gNote").textContent = g.note;
+}
+$("gNext").onclick = () => { gi = (gi + 1) % games.length; showGame(); };
+showGame();
+
+/* ---------- 2. sliding window ---------- */
+const sw = ["Inflation","rose","because","energy","prices","increased","sharply","."];
+let sk = 0, swTimer = null;
+function drawSW(){
+  const c = $("swChips"); c.innerHTML = "";
+  sw.forEach((w, i) => {
+    const s = document.createElement("span"); s.className = "chip";
+    if (sk === 0){ s.textContent = w; }
+    else if (i < sk){ s.classList.add("ctx"); s.textContent = w; }
+    else if (i === sk){ s.classList.add("tgt"); s.textContent = "? (" + w + ")"; }
+    else { s.classList.add("dim"); s.textContent = w; }
+    c.append(s);
+  });
+  $("swCount").textContent = sk === 0
+    ? "One sentence of 8 tokens. Press “Next exercise”."
+    : "Exercise " + sk + " of " + (sw.length-1) + ": given “" + sw.slice(0, sk).join(" ") + "”, guess the next token." +
+      (sk === sw.length-1 ? " One sentence gave 7 exercises. Trillions of tokens give trillions of exercises." : "");
+  $("swNext").disabled = sk >= sw.length-1;
+}
+function stopSW(){ clearInterval(swTimer); swTimer = null; $("swPlay").textContent = "Play all"; }
+$("swNext").onclick = () => { stopSW(); if (sk < sw.length-1){ sk++; drawSW(); } };
+$("swReset").onclick = () => { stopSW(); sk = 0; drawSW(); };
+$("swPlay").onclick = () => {
+  if (swTimer){ stopSW(); return; }
+  if (sk >= sw.length-1) sk = 0;
+  $("swPlay").textContent = "Pause";
+  swTimer = setInterval(() => { sk++; drawSW(); if (sk >= sw.length-1) stopSW(); }, 1100);
+  sk++; drawSW();
+};
+drawSW();
+
+/* ---------- 4. tiny bigram model ---------- */
+const sentences = [
+  "the central bank raised interest rates to reduce inflation .",
+  "the central bank cut interest rates to support growth .",
+  "higher interest rates reduce investment and slow growth .",
+  "when demand rises and supply is fixed prices rise .",
+  "when supply falls and demand is fixed prices rise .",
+  "when demand falls prices fall and firms cut output .",
+  "higher prices reduce the quantity demanded .",
+  "unemployment rises when output falls .",
+  "unemployment falls when the economy grows .",
+  "the government raised taxes to reduce the deficit .",
+  "the government cut taxes to support demand .",
+  "inflation rose because energy prices increased .",
+  "inflation fell because the central bank raised interest rates .",
+  "firms invest more when interest rates are low .",
+  "workers earn higher wages when productivity grows .",
+  "productivity grows when firms adopt new technology .",
+  "new technology can replace workers in some tasks .",
+  "new technology can help workers in other tasks .",
+  "the labour market is tight when unemployment is low .",
+  "wages rise when the labour market is tight .",
+  "trade allows countries to specialise .",
+  "countries gain from trade when they specialise .",
+  "the economy grows when productivity grows .",
+  "the price of oil rose and inflation increased ."
+].map(s => s.split(" "));
+const vocab = [...new Set(sentences.flat())];
+const V = vocab.length, idx = Object.fromEntries(vocab.map((w,i) => [w,i]));
+const pairs = [];
+sentences.forEach(s => { for (let i = 0; i < s.length-1; i++) pairs.push([idx[s[i]], idx[s[i+1]]]); });
+const counts = vocab.map(() => new Map());
+pairs.forEach(([a,b]) => counts[a].set(b, (counts[a].get(b)||0) + 1));
+const rowTotal = counts.map(m => [...m.values()].reduce((s,x) => s+x, 0));
+const uniformBits = Math.log2(V);
+const bestBits = pairs.reduce((s,[a,b]) => s - Math.log2(counts[a].get(b)/rowTotal[a]), 0) / pairs.length;
+
+let W, seen, hist, running = false;
+const LR = 1.0, SPEEDS = [1, 2, 5, 15, 40, 120];
+function resetModel(){
+  W = vocab.map(() => new Float64Array(V)); seen = 0; hist = [[0, uniformBits]];
+}
+function probs(a, T){
+  T = T || 1; const row = W[a]; let m = -Infinity;
+  for (let j = 0; j < V; j++) m = Math.max(m, row[j]/T);
+  const p = new Float64Array(V); let z = 0;
+  for (let j = 0; j < V; j++){ p[j] = Math.exp(row[j]/T - m); z += p[j]; }
+  for (let j = 0; j < V; j++) p[j] /= z;
+  return p;
+}
+function step(){
+  const [a,b] = pairs[(Math.random()*pairs.length)|0];
+  const p = probs(a), row = W[a];
+  for (let j = 0; j < V; j++) row[j] -= LR * (p[j] - (j === b ? 1 : 0));
+  seen++;
+}
+function loss(){
+  let s = 0; const cache = {};
+  for (const [a,b] of pairs){ const p = cache[a] || (cache[a] = probs(a)); s -= Math.log2(p[b]); }
+  return s / pairs.length;
+}
+
+// context picker
+const ctxWords = ["prices","when","the","interest","central","technology","unemployment","inflation"].filter(w => w in idx);
+ctxWords.forEach(w => { const o = document.createElement("option"); o.value = w; o.textContent = "“" + w + "”"; $("tCtx").append(o); });
+
+function drawBars(){
+  const a = idx[$("tCtx").value], p = probs(a);
+  const real = [...counts[a].entries()].sort((x,y) => y[1]-x[1]);
+  const rows = real.map(([b,c]) => ({label: vocab[b] === "." ? "(end of sentence)" : vocab[b], p: p[b], tick: c/rowTotal[a]}));
+  const shown = real.reduce((s,[b]) => s + p[b], 0);
+  rows.push({label:"all other words", p: 1 - shown, tick: 0, other:true});
+  renderBars($("tBars"), rows);
+}
+
+const cv = $("tChart");
+function drawChart(){
+  const dpr = window.devicePixelRatio || 1, w = cv.clientWidth, h = cv.clientHeight;
+  if (cv.width !== Math.round(w*dpr) || cv.height !== Math.round(h*dpr)){ cv.width = Math.round(w*dpr); cv.height = Math.round(h*dpr); }
+  const ctx = cv.getContext("2d"); ctx.setTransform(dpr,0,0,dpr,0,0); ctx.clearRect(0,0,w,h);
+  const L = 44, R = 12, Tp = 12, B = 30, pw = w-L-R, ph = h-Tp-B;
+  const yMax = Math.ceil(uniformBits), xMax = Math.max(3000, seen*1.05);
+  const X = x => L + pw * x / xMax, Y = y => Tp + ph * (1 - y / yMax);
+  ctx.font = "13px Calibri, Carlito, Arial, sans-serif"; ctx.fillStyle = "#4f6478"; ctx.strokeStyle = "#e3e9ee"; ctx.lineWidth = 1;
+  for (let y = 0; y <= yMax; y++){ ctx.beginPath(); ctx.moveTo(L, Y(y)); ctx.lineTo(w-R, Y(y)); ctx.stroke(); ctx.textAlign = "right"; ctx.fillText(y, L-8, Y(y)+4); }
+  ctx.textAlign = "center";
+  const stepX = Math.pow(10, Math.floor(Math.log10(xMax/4)));
+  const nice = stepX * (xMax/stepX/4 > 5 ? 5 : xMax/stepX/4 > 2 ? 2 : 1);
+  for (let x = 0; x <= xMax; x += nice) ctx.fillText(x >= 1000 ? (x/1000) + "k" : x, X(x), h-10);
+  ctx.save(); ctx.translate(12, Tp + ph/2); ctx.rotate(-Math.PI/2); ctx.fillText("bits", 0, 0); ctx.restore();
+  ctx.setLineDash([6,4]); ctx.lineWidth = 2;
+  ctx.strokeStyle = "#9fb2c3"; ctx.beginPath(); ctx.moveTo(L, Y(uniformBits)); ctx.lineTo(w-R, Y(uniformBits)); ctx.stroke();
+  ctx.strokeStyle = "#E2231A"; ctx.beginPath(); ctx.moveTo(L, Y(bestBits)); ctx.lineTo(w-R, Y(bestBits)); ctx.stroke();
+  ctx.setLineDash([]); ctx.strokeStyle = "#0A2D50"; ctx.lineWidth = 2.5; ctx.beginPath();
+  hist.forEach(([x,y], i) => i ? ctx.lineTo(X(x), Y(y)) : ctx.moveTo(X(x), Y(y))); ctx.stroke();
+}
+
+function refresh(){
+  const l = loss();
+  $("tSeen").textContent = seen.toLocaleString("en-GB");
+  $("tLoss").textContent = l.toFixed(2);
+  return l;
+}
+let lastPush = 0;
+function frame(){
+  if (running){
+    const n = SPEEDS[+$("tSpeed").value];
+    for (let i = 0; i < n; i++) step();
+    const l = refresh();
+    if (seen - lastPush >= Math.max(1, seen/400)){ hist.push([seen, l]); lastPush = seen; }
+    drawBars(); drawChart();
+  }
+  requestAnimationFrame(frame);
+}
+$("tTrain").onclick = () => { running = !running; $("tTrain").textContent = running ? "❚❚ Pause" : "▶ Train"; };
+$("tReset").onclick = () => { resetModel(); lastPush = 0; refresh(); drawBars(); drawChart(); $("tOut").textContent = ""; };
+$("tCtx").onchange = drawBars;
+$("tTemp").oninput = () => { $("tTempV").textContent = (+$("tTemp").value/10).toFixed(1); };
+$("tGen").onclick = () => {
+  const T = +$("tTemp").value / 10; let w = $("tCtx").value; const out = [w];
+  for (let k = 0; k < 18 && w !== "."; k++){
+    const p = probs(idx[w], T); let r = Math.random(), j = 0;
+    while (j < V-1 && (r -= p[j]) > 0) j++;
+    w = vocab[j]; out.push(w);
+  }
+  let s = out.join(" ").replace(/ \.$/, ".");
+  $("tOut").textContent = s.charAt(0).toUpperCase() + s.slice(1) + (w === "." ? "" : " …");
+};
+window.addEventListener("resize", drawChart);
+resetModel(); refresh(); drawBars(); drawChart();
+requestAnimationFrame(frame);
+
+/* ---------- 6. scale calculator ---------- */
+const presets = {gpt3:[175e9,300e9], chin:[70e9,1.4e12], llama:[405e9,15.6e12]};
+function fmtNum(x){
+  const u = [[1e12,"trillion"],[1e9,"billion"],[1e6,"million"]];
+  for (const [v,n] of u) if (x >= v) return (x/v >= 100 ? Math.round(x/v) : +(x/v).toPrecision(3)) + " " + n;
+  return Math.round(x).toLocaleString("en-GB");
+}
+function sci(x){ const e = Math.floor(Math.log10(x)); return (x/Math.pow(10,e)).toFixed(1) + " × 10" + String(e).replace(/\d/g, d => "⁰¹²³⁴⁵⁶⁷⁸⁹"[d]); }
+function dur(sec){
+  const y = sec / (365.25*24*3600);
+  if (y >= 1e6) return fmtNum(y) + " years";
+  if (y >= 1) return Math.round(y).toLocaleString("en-GB") + " years";
+  const d = sec / 86400; if (d >= 1) return d.toFixed(0) + " days";
+  return (sec/3600).toFixed(1) + " hours";
+}
+let exact = null;
+function updScale(){
+  const [N, D] = exact || [Math.pow(10, +$("sN").value), Math.pow(10, +$("sD").value)], C = 6*N*D;
+  $("sNv").textContent = fmtNum(N); $("sDv").textContent = fmtNum(D);
+  $("sC").textContent = sci(C);
+  $("sLap").textContent = dur(C / 1e13);
+  const days = D * 0.75 / (250*60*8);
+  $("sRead").textContent = days >= 365.25 ? (Math.round(days/365.25)).toLocaleString("en-GB") + " years" : Math.round(days).toLocaleString("en-GB") + " days";
+}
+document.querySelectorAll("[data-preset]").forEach(b => b.onclick = () => {
+  const [N,D] = presets[b.dataset.preset];
+  exact = [N, D]; $("sN").value = Math.log10(N); $("sD").value = Math.log10(D); updScale();
+  document.querySelectorAll("[data-preset]").forEach(x => x.classList.toggle("on", x === b));
+});
+["sN","sD"].forEach(id => $(id).oninput = () => { exact = null; document.querySelectorAll("[data-preset]").forEach(x => x.classList.remove("on")); updScale(); });
+document.querySelector('[data-preset="gpt3"]').click();
+})();
+</script>
+</body>
+</html>
