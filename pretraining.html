@@ -526,7 +526,7 @@ const uniformBits = Math.log2(V);
 const bestBits = pairs.reduce((s,[a,b]) => s - Math.log2(counts[a].get(b)/rowTotal[a]), 0) / pairs.length;
 
 let W, seen, hist, running = false;
-const LR = 1.0, SPEEDS = [1, 2, 5, 15, 40, 120];
+const LR0 = 1.0, SPEEDS = [1, 2, 5, 15, 40, 120];
 function resetModel(){
   W = vocab.map(() => new Float64Array(V)); seen = 0; hist = [[0, uniformBits]];
 }
@@ -541,7 +541,8 @@ function probs(a, T){
 function step(){
   const [a,b] = pairs[(Math.random()*pairs.length)|0];
   const p = probs(a), row = W[a];
-  for (let j = 0; j < V; j++) row[j] -= LR * (p[j] - (j === b ? 1 : 0));
+  const lr = Math.max(0.03, LR0 * 600 / (600 + seen));  // smaller steps as training goes on
+  for (let j = 0; j < V; j++) row[j] -= lr * (p[j] - (j === b ? 1 : 0));
   seen++;
 }
 function loss(){
